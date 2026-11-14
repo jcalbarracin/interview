@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Interview</title>
+<style>
+  :root {
+    --bg: #f5f7fb; --card: #ffffff; --text: #1d2433; --muted: #5d6779;
+    --accent: #2f6fed; --accent-dark: #1f56c4; --danger: #d93a3a; --ok: #1f9d55; --border: #dfe4ee;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 620px; margin: 0 auto; padding: 32px 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  h2 { font-size: 1.2rem; margin: 0 0 12px; }
+  p { margin: 0 0 14px; color: var(--muted); }
+  label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: .95rem; }
+  input[type=text], input[type=email], input[type=tel] {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+  .consent { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0; font-weight: 400; color: var(--muted); font-size: .92rem; }
+  .consent input { margin-top: 4px; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 12px 20px; cursor: pointer;
+           background: var(--accent); color: #fff; }
+  button:hover:not(:disabled) { background: var(--accent-dark); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.secondary { background: #eef1f7; color: var(--text); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .hidden { display: none !important; }
+  .progress { font-size: .85rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .question { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 6px 0 18px; }
+  .status { display: flex; align-items: center; gap: 10px; font-weight: 600; margin: 10px 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); }
+  .dot.rec { background: var(--danger); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .timer { font-size: 2.6rem; font-variant-numeric: tabular-nums; font-weight: 700; margin: 6px 0; }
+  .bar { height: 8px; background: #eef1f7; border-radius: 99px; overflow: hidden; position: relative; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s linear; }
+  .bar .min { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .35; }
+  .hint { font-size: .88rem; color: var(--muted); margin-top: 8px; }
+  .error { color: var(--danger); font-weight: 600; margin-top: 12px; }
+  .meter { height: 6px; background: #eef1f7; border-radius: 99px; overflow: hidden; margin-top: 10px; }
+  .meter > div { height: 100%; width: 0; background: var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1. Welcome -->
+  <div class="card" id="screen-welcome">
+    <h1>Initial Voice Interview</h1>
+    <p>You'll hear a few interview questions read aloud, one at a time. After each question you'll have a short moment to think, then your spoken answer is recorded.</p>
+    <p><strong>Each answer should be 1–2 minutes.</strong> Recording stops automatically at 2 minutes. You can't re-record, so find a quiet place and use headphones if you can.</p>
+
+    <label for="name">Full name</label>
+    <input type="text" id="name" autocomplete="name">
+    <label for="email">Email</label>
+    <input type="email" id="email" autocomplete="email">
+    <label for="phone">Mobile number (optional)</label>
+    <input type="tel" id="phone" autocomplete="tel">
+
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>I agree that my voice answers will be recorded, stored, and reviewed by the hiring team, who may use AI tools to help transcribe and evaluate them. My data will be used only for this application.</span>
+    </label>
+
+    <div class="row"><button id="btn-start">Test microphone &amp; start</button></div>
+    <div class="error" id="welcome-error"></div>
+  </div>
+
+  <!-- 2. Mic check -->
+  <div class="card hidden" id="screen-mic">
+    <h2>Microphone check</h2>
+    <p>Say a few words. The green bar should move when you speak.</p>
+    <div class="meter"><div id="mic-level"></div></div>
+    <div class="row">
+      <button id="btn-begin">My mic works, begin the interview</button>
+    </div>
+    <div class="error" id="mic-error"></div>
+  </div>
+
+  <!-- 3. Interview -->
+  <div class="card hidden" id="screen-interview">
+    <div class="progress" id="q-progress"></div>
+    <div class="question" id="q-text"></div>
+    <div class="status"><span class="dot" id="dot"></span><span id="status-text"></span></div>
+    <div class="timer" id="timer">0:00</div>
+    <div class="bar"><div id="bar-fill"></div><span class="min" id="bar-min"></span></div>
+    <div class="hint" id="hint"></div>
+    <div class="row">
+      <button class="secondary hidden" id="btn-repeat">Repeat question</button>
+      <button class="hidden" id="btn-finish" disabled>Finish answer</button>
+      <button class="hidden" id="btn-retry">Try uploading again</button>
+    </div>
+    <div class="error" id="interview-error"></div>
+  </div>
+
+  <!-- 4. Done -->
+  <div class="card hidden" id="screen-done">
+    <h1>Thank you!</h1>
+    <p>Your answers have been submitted. The hiring team will review them and contact you about next steps.</p>
+    <p>You can close this page now.</p>
+  </div>
+
+</div>
+
+<script>
+// ============ PASTE YOUR APPS SCRIPT WEB APP URL HERE ============
+const SCRIPT_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+// ================================================================
+
+const $ = id => document.getElementById(id);
+const show = id => {
+  ['screen-welcome', 'screen-mic', 'screen-interview', 'screen-done']
+    .forEach(s => $(s).classList.toggle('hidden', s !== id));
+};
+
+let stream, audioCtx, sessionId, questions = [], settings = {};
+let applicant = {};
+let inInterview = false;
+
+window.addEventListener('beforeunload', e => {
+  if (inInterview) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ---------- backend ----------
+async function api(payload) {
+  if (SCRIPT_URL.startsWith('PASTE_')) throw new Error('The interview link is not set up yet (missing SCRIPT_URL).');
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+// ---------- step 1: welcome ----------
+$('btn-start').onclick = async () => {
+  $('welcome-error').textContent = '';
+  applicant = {
+    name: $('name').value.trim(),
+    email: $('email').value.trim(),
+    phone: $('phone').value.trim()
+  };
+  if (!applicant.name || !/^\S+@\S+\.\S+$/.test(applicant.email)) {
+    $('welcome-error').textContent = 'Please enter your full name and a valid email.'; return;
+  }
+  if (!$('consent').checked) {
+    $('welcome-error').textContent = 'Please tick the consent box to continue.'; return;
+  }
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    $('welcome-error').textContent = 'Your browser can\'t record audio. Please use a recent Chrome, Edge, Firefox or Safari.'; return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    $('welcome-error').textContent = 'Microphone access was blocked. Please allow microphone access in your browser and try again.'; return;
+  }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  startMeter();
+  show('screen-mic');
+};
+
+function startMeter() {
+  const src = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  src.connect(analyser);
+  const data = new Uint8Array(analyser.fftSize);
+  (function loop() {
+    analyser.getByteTimeDomainData(data);
+    let peak = 0;
+    for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
+    $('mic-level').style.width = Math.min(100, peak * 1.6) + '%';
+    if (!$('screen-mic').classList.contains('hidden')) requestAnimationFrame(loop);
+  })();
+}
+
+// ---------- step 2: begin ----------
+$('btn-begin').onclick = async () => {
+  $('mic-error').textContent = '';
+  $('btn-begin').disabled = true;
+  $('btn-begin').textContent = 'Preparing your questions…';
+  try {
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    const data = await api({ action: 'start', ...applicant, consent: true });
+    sessionId = data.sessionId; questions = data.questions; settings = data.settings;
+    inInterview = true;
+    show('screen-interview');
+    for (let i = 0; i < questions.length; i++) await runQuestion(i);
+    await api({ action: 'finish', sessionId }).catch(() => {});
+    inInterview = false;
+    stream.getTracks().forEach(t => t.stop());
+    show('screen-done');
+  } catch (e) {
+    $('mic-error').textContent = e.message;
+    $('btn-begin').disabled = false;
+    $('btn-begin').textContent = 'My mic works, begin the interview';
+  }
+};
+
+// ---------- speech ----------
+let voice = null;
+function pickVoice() {
+  const voices = speechSynthesis.getVoices();
+  voice = voices.find(v => /en[-_](US|GB|PH|AU)/i.test(v.lang) && /Google|Natural|Samantha|Microsoft/i.test(v.name))
+       || voices.find(v => /^en/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+function speak(text) {
+  return new Promise(resolve => {
+    if (!('speechSynthesis' in window)) return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) u.voice = voice;
+    u.rate = 0.95;
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    u.onend = finish; u.onerror = finish;
+    // fallback in case the browser never fires onend
+    setTimeout(finish, (text.split(/\s+/).length / 2.2 + 3) * 1000);
+    speechSynthesis.speak(u);
+  });
+}
+
+function beep() {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.frequency.value = 880; g.gain.value = 0.15;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + 0.25);
+  return new Promise(r => setTimeout(r, 350));
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+function setStatus(text, recording) {
+  $('status-text').textContent = text;
+  $('dot').classList.toggle('rec', !!recording);
+}
+
+// ---------- one question ----------
+async function runQuestion(i) {
+  const q = questions[i];
+  $('interview-error').textContent = '';
+  $('q-progress').textContent = 'Question ' + (i + 1) + ' of ' + questions.length;
+  $('q-text').textContent = settings.showText ? q.text : 'Listen to the question…';
+  $('timer').textContent = fmt(0);
+  $('bar-fill').style.width = '0';
+  $('bar-min').style.left = (settings.minSeconds / settings.maxSeconds * 100) + '%';
+  $('btn-finish').classList.add('hidden');
+  $('btn-retry').classList.add('hidden');
+  $('hint').textContent = '';
+
+  // read the question aloud
+  setStatus('Interviewer is speaking…');
+  await speak('Question ' + (i + 1) + '. ' + q.text);
+
+  // thinking time, with one chance to repeat
+  let repeatRequested = false;
+  $('btn-repeat').classList.remove('hidden');
+  $('btn-repeat').disabled = false;
+  $('btn-repeat').onclick = () => { repeatRequested = true; $('btn-repeat').disabled = true; };
+  for (let s = settings.prepSeconds; s > 0; s--) {
+    if (repeatRequested) {
+      repeatRequested = false;
+      setStatus('Interviewer is speaking…');
+      await speak(q.text);
+      s = settings.prepSeconds + 1; continue;
+    }
+    setStatus('Get ready. Recording starts in ' + s + '…');
+    $('timer').textContent = fmt(0);
+    await sleep(1000);
+  }
+  $('btn-repeat').classList.add('hidden');
+  await beep();
+
+  // record
+  const result = await record();
+  setStatus('Saving your answer…');
+  await upload(i, q, result);
+}
+
+function record() {
+  return new Promise(resolve => {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    const mimeType = types.find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+    const rec = new MediaRecorder(stream, mimeType ? { mimeType, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 });
+    const chunks = [];
+    const t0 = Date.now();
+    let tick;
+
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      clearInterval(tick);
+      const type = rec.mimeType || mimeType || 'audio/webm';
+      resolve({ blob: new Blob(chunks, { type }), mimeType: type, durationSec: (Date.now() - t0) / 1000 });
+    };
+
+    setStatus('Recording your answer', true);
+    $('btn-finish').classList.remove('hidden');
+    $('btn-finish').disabled = true;
+    $('btn-finish').onclick = () => { if (rec.state === 'recording') rec.stop(); };
+    $('hint').textContent = 'Speak for at least ' + fmt(settings.minSeconds) + '. Recording stops automatically at ' + fmt(settings.maxSeconds) + '.';
+
+    rec.start(1000);
+    tick = setInterval(() => {
+      const el = (Date.now() - t0) / 1000;
+      $('timer').textContent = fmt(el);
+      $('bar-fill').style.width = Math.min(100, el / settings.maxSeconds * 100) + '%';
+      if (el >= settings.minSeconds) {
+        $('btn-finish').disabled = false;
+        $('hint').textContent = 'You can finish now, or keep going until ' + fmt(settings.maxSeconds) + '.';
+      }
+      if (el >= settings.maxSeconds && rec.state === 'recording') rec.stop();
+    }, 250);
+  }).finally(() => { $('btn-finish').classList.add('hidden'); });
+}
+
+function toBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function upload(i, q, result) {
+  const audioBase64 = await toBase64(result.blob);
+  const payload = { action: 'answer', sessionId, index: i, mimeType: result.mimeType, durationSec: result.durationSec, audioBase64 };
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await api(payload);
+      setStatus('Answer saved ✓');
+      await sleep(900);
+      return;
+    } catch (e) {
+      if (attempt < 3) { await sleep(2000 * attempt); continue; }
+      // let the applicant retry manually instead of losing the answer
+      $('interview-error').textContent = 'Upload failed: ' + e.message + ' Check your internet connection, then try again.';
+      setStatus('Your answer is not saved yet');
+      await new Promise(r => {
+        $('btn-retry').classList.remove('hidden');
+        $('btn-retry').onclick = () => { $('btn-retry').classList.add('hidden'); $('interview-error').textContent = ''; setStatus('Saving your answer…'); r(); };
+      });
+      attempt = 0;
+    }
+  }
+}
+</script>
+</body>
+</html>
