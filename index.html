@@ -29,6 +29,23 @@
   button.secondary { background: #eef1f7; color: var(--text); }
   .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
   .hidden { display: none !important; }
+
+  /* interviewer */
+  .interviewer { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff;
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.4rem;
+            flex-shrink: 0; transition: box-shadow .2s; }
+  .avatar.talking { animation: talk 1.1s ease-in-out infinite; }
+  @keyframes talk {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(47,111,237,.45); }
+    50% { box-shadow: 0 0 0 12px rgba(47,111,237,0); }
+  }
+  .iv-name { font-weight: 700; }
+  .iv-role { font-size: .85rem; color: var(--muted); }
+  .iv-say { background: #eef3fe; border-radius: 10px; padding: 10px 14px; color: var(--text);
+            font-size: .95rem; margin: 0 0 16px; min-height: 1.5em; }
+  .iv-say:empty { display: none; }
+
   .progress { font-size: .85rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .04em; }
   .question { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 6px 0 18px; }
   .status { display: flex; align-items: center; gap: 10px; font-weight: 600; margin: 10px 0; }
@@ -38,9 +55,16 @@
   .timer { font-size: 2.6rem; font-variant-numeric: tabular-nums; font-weight: 700; margin: 6px 0; }
   .bar { height: 8px; background: #eef1f7; border-radius: 99px; overflow: hidden; position: relative; }
   .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s linear; }
+  .bar > div.warn { background: #e8a317; }
   .bar .min { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .35; }
   .hint { font-size: .88rem; color: var(--muted); margin-top: 8px; }
+  .hint.warn { color: #b7791f; font-weight: 600; }
   .error { color: var(--danger); font-weight: 600; margin-top: 12px; }
+  .selfwrap { position: relative; width: 100%; max-width: 360px; margin: 0 0 16px; }
+  .selfview { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #111; border-radius: 10px;
+              transform: scaleX(-1); display: block; }
+  .rec-badge { position: absolute; top: 8px; left: 8px; background: var(--danger); color: #fff; font-size: .75rem;
+               font-weight: 700; padding: 3px 8px; border-radius: 6px; letter-spacing: .04em; }
   .meter { height: 6px; background: #eef1f7; border-radius: 99px; overflow: hidden; margin-top: 10px; }
   .meter > div { height: 100%; width: 0; background: var(--ok); }
 </style>
@@ -51,8 +75,8 @@
   <!-- 1. Welcome -->
   <div class="card" id="screen-welcome">
     <h1>Initial Voice Interview</h1>
-    <p>You'll hear a few interview questions read aloud, one at a time. After each question you'll have a short moment to think, then your spoken answer is recorded.</p>
-    <p><strong>Each answer should be 1–2 minutes.</strong> Recording stops automatically at 2 minutes. You can't re-record, so find a quiet place and use headphones if you can.</p>
+    <p>Our AI interviewer will greet you and ask a few questions out loud, one at a time. After each question you'll have a short moment to think, then your answer is recorded on video.</p>
+    <p><strong>Each answer should be 1–2 minutes.</strong> Recording stops automatically at 2 minutes. You can't re-record, so find a quiet, well-lit place, keep your face in view of the camera, and use headphones if you can.</p>
 
     <label for="name">Full name</label>
     <input type="text" id="name" autocomplete="name">
@@ -63,28 +87,42 @@
 
     <label class="consent">
       <input type="checkbox" id="consent">
-      <span>I agree that my voice answers will be recorded, stored, and reviewed by the hiring team, who may use AI tools to help transcribe and evaluate them. My data will be used only for this application.</span>
+      <span>I agree that my video and voice answers will be recorded, stored, and reviewed by the hiring team, who may use AI tools to help transcribe and evaluate them. My data will be used only for this application.</span>
     </label>
 
-    <div class="row"><button id="btn-start">Test microphone &amp; start</button></div>
+    <div class="row"><button id="btn-start">Test camera &amp; microphone, then start</button></div>
     <div class="error" id="welcome-error"></div>
   </div>
 
   <!-- 2. Mic check -->
   <div class="card hidden" id="screen-mic">
-    <h2>Microphone check</h2>
-    <p>Say a few words. The green bar should move when you speak.</p>
+    <h2>Camera and microphone check</h2>
+    <p>Make sure your face is clearly visible. Say a few words: the green bar should move when you speak. Turn your volume up so you can hear the interviewer.</p>
+    <div class="selfwrap"><video class="selfview" id="cam-check" autoplay muted playsinline></video></div>
     <div class="meter"><div id="mic-level"></div></div>
     <div class="row">
-      <button id="btn-begin">My mic works, begin the interview</button>
+      <button id="btn-begin">My camera and mic work, begin the interview</button>
     </div>
     <div class="error" id="mic-error"></div>
   </div>
 
   <!-- 3. Interview -->
   <div class="card hidden" id="screen-interview">
+    <div class="interviewer">
+      <div class="avatar" id="avatar"></div>
+      <div>
+        <div class="iv-name" id="iv-name"></div>
+        <div class="iv-role">AI Interviewer</div>
+      </div>
+    </div>
+    <div class="iv-say" id="iv-say"></div>
+
     <div class="progress" id="q-progress"></div>
     <div class="question" id="q-text"></div>
+    <div class="selfwrap">
+      <video class="selfview" id="cam-live" autoplay muted playsinline></video>
+      <span class="rec-badge hidden" id="rec-badge">● REC</span>
+    </div>
     <div class="status"><span class="dot" id="dot"></span><span id="status-text"></span></div>
     <div class="timer" id="timer">0:00</div>
     <div class="bar"><div id="bar-fill"></div><span class="min" id="bar-min"></span></div>
@@ -107,19 +145,46 @@
 </div>
 
 <script>
-// ============ PASTE YOUR APPS SCRIPT WEB APP URL HERE ============
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKiIFQyvuiT3qV3b1A0X8LDtMxNvy3v15lJO-oWAwK_XukfPIbJEuujN87QnKr3_fLNw/exec';
-// ================================================================
+// ===================== YOUR SETTINGS =====================
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKiIFQyvuiT3qV3b1A0X8LDtMxNvy3v15lJO-oWAwK_XukfPIbJEuujN87QnKr3_fLNw/exec';   // your Apps Script /exec link
+const INTERVIEWER_NAME = 'Alex';                     // the name the AI interviewer uses
+const COMPANY_NAME = 'ROAM Adventure';                             // e.g. 'Roam Adventure Co.' (leave '' to skip)
+// =========================================================
+
+// Things the interviewer says. Edit or add lines freely; one is picked at random each time.
+const LINES = {
+  thanks: [
+    'Thank you.',
+    'Thanks for sharing that.',
+    'Got it, thank you.',
+    'Thank you, that is helpful.',
+    'Okay, thank you for that answer.'
+  ],
+  next: [
+    'Here is the next question.',
+    'Let us move on to the next one.',
+    'Okay, next question.',
+    'Alright, here is your next question.'
+  ],
+  halfway: 'We are about halfway through. Here is the next question.',
+  last: 'And now, the last question.',
+  notStarted: 'Whenever you are ready, go ahead and start your answer.',
+  moreDetail: 'Take your time. You can add more detail, like an example from your own experience.'
+};
 
 const $ = id => document.getElementById(id);
 const show = id => {
   ['screen-welcome', 'screen-mic', 'screen-interview', 'screen-done']
     .forEach(s => $(s).classList.toggle('hidden', s !== id));
 };
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-let stream, audioCtx, sessionId, questions = [], settings = {};
+let stream, audioCtx, analyser, sessionId, questions = [], settings = {};
 let applicant = {};
 let inInterview = false;
+
+$('iv-name').textContent = INTERVIEWER_NAME;
+$('avatar').textContent = INTERVIEWER_NAME.charAt(0).toUpperCase();
 
 window.addEventListener('beforeunload', e => {
   if (inInterview) { e.preventDefault(); e.returnValue = ''; }
@@ -156,31 +221,44 @@ $('btn-start').onclick = async () => {
     $('welcome-error').textContent = 'Your browser can\'t record audio. Please use a recent Chrome, Edge, Firefox or Safari.'; return;
   }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 24 } }
+    });
   } catch (e) {
-    $('welcome-error').textContent = 'Microphone access was blocked. Please allow microphone access in your browser and try again.'; return;
+    $('welcome-error').textContent = (e && e.name === 'NotFoundError')
+      ? 'No camera or microphone was found. Please use a device with a working camera and microphone.'
+      : 'Camera or microphone access was blocked. Please allow both in your browser (click the camera icon in the address bar) and try again.';
+    return;
   }
+  $('cam-check').srcObject = stream;
+  $('cam-live').srcObject = stream;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 1024;
+  src.connect(analyser);
   startMeter();
   show('screen-mic');
 };
 
+// current mic loudness, 0 to about 1
+const levelBuf = new Uint8Array(1024);
+function micLevel() {
+  analyser.getByteTimeDomainData(levelBuf);
+  let sum = 0;
+  for (const v of levelBuf) { const x = (v - 128) / 128; sum += x * x; }
+  return Math.sqrt(sum / levelBuf.length);
+}
+
 function startMeter() {
-  const src = audioCtx.createMediaStreamSource(stream);
-  const analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 512;
-  src.connect(analyser);
-  const data = new Uint8Array(analyser.fftSize);
   (function loop() {
-    analyser.getByteTimeDomainData(data);
-    let peak = 0;
-    for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
-    $('mic-level').style.width = Math.min(100, peak * 1.6) + '%';
+    $('mic-level').style.width = Math.min(100, micLevel() * 600) + '%';
     if (!$('screen-mic').classList.contains('hidden')) requestAnimationFrame(loop);
   })();
 }
 
-// ---------- step 2: begin ----------
+// ---------- step 2: the interview ----------
 $('btn-begin').onclick = async () => {
   $('mic-error').textContent = '';
   $('btn-begin').disabled = true;
@@ -191,17 +269,41 @@ $('btn-begin').onclick = async () => {
     sessionId = data.sessionId; questions = data.questions; settings = data.settings;
     inInterview = true;
     show('screen-interview');
+
+    const first = applicant.name.split(/\s+/)[0];
+    setStatus('Interviewer is speaking…');
+    await speak(
+      'Hi ' + first + '! I am ' + INTERVIEWER_NAME + ', and I will be your interviewer today' +
+      (COMPANY_NAME ? ' for ' + COMPANY_NAME : '') + '. ' +
+      'I will ask you ' + questions.length + ' questions. After each one, you will have ' + settings.prepSeconds +
+      ' seconds to think. When you hear the beep, start speaking. Try to answer for at least ' +
+      spokenTime(settings.minSeconds) + ', and no more than ' + spokenTime(settings.maxSeconds) + ', unless I say otherwise. Let us begin.'
+    );
+
     for (let i = 0; i < questions.length; i++) await runQuestion(i);
-    await api({ action: 'finish', sessionId }).catch(() => {});
+
+    setStatus('Interviewer is speaking…');
+    await Promise.all([
+      speak('That is the end of the interview. Thank you for your time, ' + first +
+            '. The hiring team will review your answers and get back to you. Have a great day!'),
+      api({ action: 'finish', sessionId }).catch(() => {})
+    ]);
     inInterview = false;
     stream.getTracks().forEach(t => t.stop());
     show('screen-done');
   } catch (e) {
     $('mic-error').textContent = e.message;
     $('btn-begin').disabled = false;
-    $('btn-begin').textContent = 'My mic works, begin the interview';
+    $('btn-begin').textContent = 'My camera and mic work, begin the interview';
+    show('screen-mic');
+    startMeter();
   }
 };
+
+function spokenTime(s) {
+  if (s % 60 === 0) return (s / 60) + (s === 60 ? ' minute' : ' minutes');
+  return s + ' seconds';
+}
 
 // ---------- speech ----------
 let voice = null;
@@ -212,15 +314,23 @@ function pickVoice() {
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 
-function speak(text) {
+// says the text out loud, shows it as a caption, and animates the avatar
+function speak(text, caption = text) {
   return new Promise(resolve => {
-    if (!('speechSynthesis' in window)) return resolve();
+    $('iv-say').textContent = caption || '';
+    $('avatar').classList.add('talking');
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      $('avatar').classList.remove('talking');
+      resolve();
+    };
+    if (!('speechSynthesis' in window)) { setTimeout(finish, 1500); return; }
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     if (voice) u.voice = voice;
     u.rate = 0.95;
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
     u.onend = finish; u.onerror = finish;
     // fallback in case the browser never fires onend
     setTimeout(finish, (text.split(/\s+/).length / 2.2 + 3) * 1000);
@@ -228,12 +338,17 @@ function speak(text) {
   });
 }
 
-function beep() {
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.frequency.value = 880; g.gain.value = 0.15;
-  o.connect(g); g.connect(audioCtx.destination);
-  o.start(); o.stop(audioCtx.currentTime + 0.25);
-  return new Promise(r => setTimeout(r, 350));
+function beep(times = 1) {
+  return new Promise(r => {
+    for (let k = 0; k < times; k++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; g.gain.value = 0.15;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t = audioCtx.currentTime + k * 0.3;
+      o.start(t); o.stop(t + 0.18);
+    }
+    setTimeout(r, times * 300 + 100);
+  });
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -244,24 +359,41 @@ function setStatus(text, recording) {
   $('dot').classList.toggle('rec', !!recording);
 }
 
+function setHint(text, warn) {
+  $('hint').textContent = text;
+  $('hint').classList.toggle('warn', !!warn);
+}
+
 // ---------- one question ----------
 async function runQuestion(i) {
   const q = questions[i];
+  const n = questions.length;
   $('interview-error').textContent = '';
-  $('q-progress').textContent = 'Question ' + (i + 1) + ' of ' + questions.length;
+  $('q-progress').textContent = 'Question ' + (i + 1) + ' of ' + n;
   $('q-text').textContent = settings.showText ? q.text : 'Listen to the question…';
   $('timer').textContent = fmt(0);
   $('bar-fill').style.width = '0';
-  $('bar-min').style.left = (settings.minSeconds / settings.maxSeconds * 100) + '%';
+  $('bar-fill').classList.remove('warn');
+  q.min = q.minSeconds || settings.minSeconds;
+  q.max = q.maxSeconds || settings.maxSeconds;
+  $('bar-min').style.left = (q.min / q.max * 100) + '%';
   $('btn-finish').classList.add('hidden');
   $('btn-retry').classList.add('hidden');
-  $('hint').textContent = '';
+  setHint('');
 
-  // read the question aloud
+  // lead-in line, then the question
+  let lead;
+  if (i === 0) lead = 'Here is your first question.';
+  else if (i === n - 1) lead = LINES.last;
+  else if (n >= 4 && i === Math.floor(n / 2)) lead = LINES.halfway;
+  else lead = pick(LINES.next);
+
   setStatus('Interviewer is speaking…');
-  await speak('Question ' + (i + 1) + '. ' + q.text);
+  const shortNote = q.max < settings.maxSeconds ? ' A short answer is fine for this one.' : '';
+  await speak(lead + ' ' + q.text + shortNote,
+              (settings.showText ? lead : lead + ' (listen to the question)') + shortNote);
 
-  // thinking time, with one chance to repeat
+  // thinking time, with the option to repeat the question
   let repeatRequested = false;
   $('btn-repeat').classList.remove('hidden');
   $('btn-repeat').disabled = false;
@@ -270,35 +402,52 @@ async function runQuestion(i) {
     if (repeatRequested) {
       repeatRequested = false;
       setStatus('Interviewer is speaking…');
-      await speak(q.text);
+      await speak('Sure. ' + q.text, settings.showText ? 'Sure, here it is again.' : 'Sure, here it is again (listen).');
       s = settings.prepSeconds + 1; continue;
     }
-    setStatus('Get ready. Recording starts in ' + s + '…');
-    $('timer').textContent = fmt(0);
+    setStatus('Take a moment to think. Recording starts in ' + s + '…');
     await sleep(1000);
   }
   $('btn-repeat').classList.add('hidden');
+  $('iv-say').textContent = 'Go ahead, I\'m listening.';
   await beep();
 
-  // record
-  const result = await record();
+  // record the answer
+  const result = await record(q);
+
+  // react while the answer uploads
   setStatus('Saving your answer…');
-  await upload(i, q, result);
+  await Promise.all([
+    upload(i, q, result),
+    speak(pick(LINES.thanks))
+  ]);
 }
 
-function record() {
+function record(q) {
+  const MIN = q.min, MAX = q.max;
   return new Promise(resolve => {
-    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    const types = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'];
     const mimeType = types.find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
-    const rec = new MediaRecorder(stream, mimeType ? { mimeType, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 });
+    // small file sizes: about 2.5 MB per minute
+    const opts = { videoBitsPerSecond: 300000, audioBitsPerSecond: 48000 };
+    if (mimeType) opts.mimeType = mimeType;
+    const rec = new MediaRecorder(stream, opts);
     const chunks = [];
     const t0 = Date.now();
     let tick;
 
+    // for the "interactive" nudges
+    const SILENCE_LEVEL = 0.02;     // below this counts as quiet
+    const NUDGE_AFTER = 8;          // seconds of quiet before the interviewer speaks up
+    let lastSound = t0, everSpoke = false;
+    let nudgedStart = false, nudgedDetail = false, warned = false, speakingNudge = false;
+
     rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
     rec.onstop = () => {
       clearInterval(tick);
-      const type = rec.mimeType || mimeType || 'audio/webm';
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      $('rec-badge').classList.add('hidden');
+      const type = rec.mimeType || mimeType || 'video/webm';
       resolve({ blob: new Blob(chunks, { type }), mimeType: type, durationSec: (Date.now() - t0) / 1000 });
     };
 
@@ -306,18 +455,51 @@ function record() {
     $('btn-finish').classList.remove('hidden');
     $('btn-finish').disabled = true;
     $('btn-finish').onclick = () => { if (rec.state === 'recording') rec.stop(); };
-    $('hint').textContent = 'Speak for at least ' + fmt(settings.minSeconds) + '. Recording stops automatically at ' + fmt(settings.maxSeconds) + '.';
+    setHint('Speak for at least ' + fmt(MIN) + '. Recording stops automatically at ' + fmt(MAX) + '.');
 
     rec.start(1000);
+    $('rec-badge').classList.remove('hidden');
     tick = setInterval(() => {
-      const el = (Date.now() - t0) / 1000;
+      const now = Date.now();
+      const el = (now - t0) / 1000;
+      const left = MAX - el;
+
+      // listen for the applicant's voice (ignore the interviewer's own nudges)
+      if (!speakingNudge && micLevel() > SILENCE_LEVEL) { lastSound = now; everSpoke = true; }
+      const quietFor = (now - lastSound) / 1000;
+
       $('timer').textContent = fmt(el);
-      $('bar-fill').style.width = Math.min(100, el / settings.maxSeconds * 100) + '%';
-      if (el >= settings.minSeconds) {
-        $('btn-finish').disabled = false;
-        $('hint').textContent = 'You can finish now, or keep going until ' + fmt(settings.maxSeconds) + '.';
+      $('bar-fill').style.width = Math.min(100, el / MAX * 100) + '%';
+
+      // gentle nudges before the minimum time
+      if (el < MIN && quietFor >= NUDGE_AFTER && !speakingNudge) {
+        if (!everSpoke && !nudgedStart) {
+          nudgedStart = true; speakingNudge = true;
+          speak(LINES.notStarted).then(() => { speakingNudge = false; lastSound = Date.now(); });
+        } else if (everSpoke && !nudgedDetail) {
+          nudgedDetail = true; speakingNudge = true;
+          speak(LINES.moreDetail).then(() => { speakingNudge = false; lastSound = Date.now(); });
+        }
       }
-      if (el >= settings.maxSeconds && rec.state === 'recording') rec.stop();
+
+      if (el >= MIN) {
+        $('btn-finish').disabled = false;
+        if (!warned) {
+          if (quietFor >= NUDGE_AFTER) setHint('If you\'re finished, click "Finish answer".');
+          else setHint('You can finish now, or keep going until ' + fmt(MAX) + '.');
+        }
+      }
+
+      // 15-second warning
+      if (left <= 15 && MAX >= 45 && !warned) {
+        warned = true;
+        $('bar-fill').classList.add('warn');
+        setHint('About 15 seconds left. Please start wrapping up.', true);
+        $('iv-say').textContent = 'About 15 seconds left.';
+        beep(2);
+      }
+
+      if (el >= MAX && rec.state === 'recording') rec.stop();
     }, 250);
   }).finally(() => { $('btn-finish').classList.add('hidden'); });
 }
@@ -325,7 +507,7 @@ function record() {
 function toBase64(blob) {
   return new Promise((res, rej) => {
     const r = new FileReader();
-    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onload = () => { const s = String(r.result); res(s.slice(s.indexOf('base64,') + 7)); };
     r.onerror = rej;
     r.readAsDataURL(blob);
   });
@@ -338,7 +520,7 @@ async function upload(i, q, result) {
     try {
       await api(payload);
       setStatus('Answer saved ✓');
-      await sleep(900);
+      await sleep(600);
       return;
     } catch (e) {
       if (attempt < 3) { await sleep(2000 * attempt); continue; }
